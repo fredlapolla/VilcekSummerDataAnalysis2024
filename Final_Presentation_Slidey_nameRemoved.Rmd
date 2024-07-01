@@ -1,0 +1,259 @@
+---
+title: "Analysis of Biomarkers in Preclinical Alzheimer’s Disease"
+author: ""
+date: "8/9/2020"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Purpose of Analysis
+
+The data I have selected is from a longitudinal study that collected concentrations of amyloid-beta 1±42 (AB42) and tau in participants cerebrospinal fluid and recorded if the patients were APOE4 positive or negative.
+
+- Biomarkers can lead to early detection of cognitive decline.
+- Allow for early interventions.
+- Many studies have found that the presence of APOE4 gene increases risks.
+- Reductions in AB42 tend to correlate with cognitive decline. 
+- Tau levels tend to increase before cognitive decline.
+
+
+Today I will be showing basic analysis of these biomarkers to see if any information can be extracted for predicting cognitive decline.
+
+
+## Reading Data
+
+The data was collected from NYU's data catalog and was used in the study: "The nonlinear relationship between cerebrospinal fluid Aβ42 and tau in preclinical Alzheimer’s disease" by Mony J. de Leon et al.
+
+
+```{r Reading Data, echo=TRUE}
+#Importing necessary libraries.
+
+library(ggplot2) 
+library(RCurl) 
+library(ggpubr)
+library(pastecs)
+
+#Reading in the .csv file.
+url <-getURL("https://ndownloader.figshare.com/files/18257495?private_link=16d233d4822b810bcd9b")
+nyu <- read.csv(text = url)
+
+#Showing the top rows of the data for visualization.
+head(nyu)
+```
+
+## Cleaning and Oganizing the Data
+
+The data required factorization and relabeling for clarity
+
+```{r Cleaning and Organizing, echo=TRUE}
+#The following code is used for factorizing the data.
+
+nyu$gender <- factor(nyu$gender, labels = c('Female','Male'))
+nyu$cohort <- factor(nyu$cohort, labels = c('ADNI','NACC','NYU'))
+nyu$ApoE4status <- factor(nyu$ApoE4status, labels = c('Carrier E4+','Non-Carrier E4-'))
+nyu$dx <- factor(nyu$dx, labels = c('Normal Cognition'))
+
+#The last diagnosis was recorded for the lab group's notes, the following code re-labels them into more understandable groups and then factorizes it.Note the last diagnosis was left as a "chr" because it was not used for the subsequent analysis.
+
+nyu$Last_dx_group <- ifelse(nyu$dx_last == "last", 1, ifelse(nyu$dx_last == "NL",2,ifelse(nyu$dx_last == "MCI",3,4)))
+nyu$Last_dx_group <- factor(nyu$Last_dx_group, levels = 1:4, labels = c('No follow up','Normal Cognition', 'Mild Cognitive Impairment','Alzheimer’s Disease'))
+
+#ifelse funtion is used to create a column for age group and factorize it by intervals of 10 years.
+
+nyu$age_group <- ifelse(nyu$age >= 40 & nyu$age < 50, 1,ifelse(nyu$age >= 50 & nyu$age < 60, 2,ifelse(nyu$age >= 60 & nyu$age < 70, 3, ifelse(nyu$age >= 70 & nyu$age < 80, 4, 5))))
+nyu$age_group <- factor(nyu$age_group, levels = 1:5, labels = c('40s','50s', '60s','70s','80s'))
+
+#Reorganize the columns so that the newly created columns are in logical locations.
+
+nyu <- nyu[c(1:3,16,4:7,15,8:14)]
+
+```
+
+
+## Looking at the NAs within the data
+To understand if there was any reason for the NAs I summarized the NAs in the data frame.
+
+```{r NAs, echo=TRUE}
+#Create a new data frame and only store NAs.
+
+nyu.na <- nyu[is.na(nyu$zAB42),]
+
+#Summarizing the nyu.na dataframe.
+
+summary(nyu.na)
+```
+
+## Interpretation of NAs
+
+```{r echo=TRUE}
+#Summarizing the last diagnosis column to more clearly show trend in NAs
+
+summary(nyu.na$Last_dx_group)
+```
+
+- Of all the Nas, only two were labeled as having a follow up appointment.
+- According to the paper, 115 individuals did not have second appointment.
+- Maybe two were mislabeled
+
+
+**Decision:** Omit all NAs 
+```{r NA Omit, echo=TRUE}
+#Omitting all NAs
+
+nyu.clean <- na.omit(nyu)
+
+#By doing so allows for the dichotomizing of cognitive status by normal and impaired.
+
+nyu.clean$cognition_dichotomized <- ifelse(nyu.clean$Last_dx_group == 'Normal Cognition', 1, 2)
+nyu.clean$cognition_dichotomized <- factor(nyu.clean$cognition_dichotomized, levels = 1:2, labels = c('Normal Cognition', 'Impaired Cognition'))
+
+#Reorganizing the columns to account for new dichotomy column.
+
+nyu.clean$Last_dx_group <- factor(nyu.clean$Last_dx_group, labels = c('Normal Cognition', 'Mild Cognitive Impairment','Alzheimer’s Disease'))
+nyu.clean <- nyu.clean[c(1:9,17,10:16)]
+```
+
+
+## Evaluation of Skewness
+```{r echo=TRUE, fig.align='center', fig.height=10, fig.width=10, warning=FALSE}
+#Using ggplot to create histograms of each biomarker that are filled by "cognition_dichotomized"
+
+h1 <- ggplot(nyu.clean, aes(x = AB42, y = ..count.., fill = cognition_dichotomized)) +geom_bar(width = 100) + xlab("AB42 (pg/ml)")
+h2 <- ggplot(nyu.clean, aes(x = Ptau, y = ..count.., fill = cognition_dichotomized)) +geom_bar(width = 100) + xlab("Ptau (pg/ml)")
+h3 <- ggplot(nyu.clean, aes(x = Ttau, y = ..count.., fill = cognition_dichotomized)) +geom_bar(width = 100) + xlab("Ttau (pg/ml)")
+
+#The library 'ggpubr' has functions "annotate_figure" and "ggarrange". "annotate_figure" is used to label the figure as "Figure 1", note "top" is used to add a label at the top, but I left it as "" becuase it helped format the data. ggarrange is used to return all figures on one page (number on each row/column is psecified) and label A,B,C.
+
+annotate_figure(ggarrange(h1, h2, h3, labels = c("A", "B", "C"), ncol = 1, nrow = 3),fig.lab = "Figure 1", top ="" )
+
+```
+Apparent right skew for all biomarkers.
+
+To view skew numerically.
+
+```{r echo=TRUE}
+#Storing stat.desc return for AB42, Ptau, and Ttau in variable skew and then calling only skewness in the next line.
+
+skew <- sapply(nyu.clean[,11:13],stat.desc,norm = T)
+skew["skewness",1:3]
+```
+Skewness agrees with visual interpretation.
+
+## Mean Analysis
+
+First Looking as the mean across amyloid-beta, phosphorylated tau, and total tau
+```{r echo=TRUE}
+#Using the sapply funtion to apply the mean function to columns AB42, Ptau, and Ttau.
+
+sapply(nyu.clean[,11:13], mean)
+```
+To see if the means vary based on follow up diagnosis, I investigated each biomarker's average by cognitive diagnosis of the follow up visit.
+```{r echo=TRUE}
+#Running a for loop of values 11, 12, and 13 which corresponds to columns AB42, Ptau, and Ttau. The for loop first prints a solid line to help with the visualization, then prints the name of the biomarker being analyzed, then the means by cognitive diagnosis.
+
+for (i in 11:13) {
+  print('__________________________________________________________________________________________')
+  print(names(nyu.clean[i]))
+  print(by(nyu.clean[,i], nyu.clean$Last_dx_group, mean))
+  print('__________________________________________________________________________________________')
+  print('')
+  print('')
+}
+
+
+```
+
+## Visualization of Mean
+
+I then wanted to visualize the means in bar graphs.
+```{r echo=TRUE, fig.align='center', fig.height=10, fig.width=10}
+#Using ggplot to create and label bar graphs of each biomarker by cognitive diagnosis and storing them in variables. 
+
+p1 <- ggplot(nyu.clean, aes(x = Last_dx_group, y = AB42)) + stat_summary(fun = mean, geom="bar",fill = "white", color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .5) + xlab("Cognitive Diagnosis") + ylab("AB42 (pg/ml)")
+p2 <- ggplot(nyu.clean, aes(x = Last_dx_group, y = Ptau)) + stat_summary(fun = mean, geom="bar",fill = "white", color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .5) + xlab("Cognitive Diagnosis") + ylab("Ptau (pg/ml)")
+p3 <- ggplot(nyu.clean, aes(x = Last_dx_group, y = Ttau)) + stat_summary(fun = mean, geom="bar",fill = "white", color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .5) + xlab("Cognitive Diagnosis") + ylab("Ttau (pg/ml)")
+
+#Based on trends in seen by plotting AB42 by cognitive diagnosis, I then decided to plot AB42 by "Age_gorup".
+
+p4 <- ggplot(nyu.clean, aes(x = age_group, y = AB42)) + stat_summary(fun = mean, geom="bar",fill = "white", color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .5) + xlab("Age Group") + ylab("AB42 (pg/ml)")
+
+#Library 'ggpubr' functions to put ggplots in one pane and label the figure (see slide 7 for more details).
+
+annotate_figure(ggarrange(p1, p2, p3, p4, labels = c("A", "B", "C", "D"), ncol = 2, nrow = 2, align = 'hv'),fig.lab = "Figure 2", top ="" )
+```
+
+## Linear Regression of AB42
+```{r echo=TRUE, fig.align='center', warning=FALSE}
+#Using ggplot to plot scatter plots of AB42 by age and coloring them by cognitive diagnosis or APOE4 status
+
+s1 <- ggplot(nyu.clean, aes(x = age, y = AB42, col = Last_dx_group, shape = ApoE4status)) + geom_point() + xlab("Age Group") + ylab("AB42 (pg/ml)")
+
+#Library 'ggpubr' functions to put ggplots in one pane and label the figure (see slide 7 for more details).
+
+annotate_figure(ggarrange(s1, labels = "A", ncol = 1, nrow = 1, align = 'hv'),fig.lab = "Figure 3", top ="" )
+
+#The subsequent linear regression model was using APOE4 - for the model, however I wanted APOE e4 +. The following code relevels the factors.
+
+nyu.clean <- within(nyu.clean, ApoE4status <- relevel(ApoE4status, ref = 2))
+
+#Running a linear regression models on AB42 by age and age/APOE4 status.
+
+AB42_LM <- lm(AB42 ~ age, data = nyu.clean)
+AB42_LM2 <- lm(AB42 ~ age + ApoE4status, data = nyu.clean)
+
+#Using the AIC function to determine which model has a better fit
+
+AIC(AB42_LM,AB42_LM2)
+
+#Because the second model has a slightly better fit, the summary was run for that model.
+
+summary(AB42_LM2)
+
+```
+- Combined model is a very slightly better fit.
+- F-statistic gives confidence that the model is better than none.
+- R squared value is 0.2307.
+- Increase in age results in a decrease in AB42.
+- A switch from APOE4 negative to positive results in a large decrease in AB42.
+
+
+## Discussion and Future Directions
+
+**Discussion**
+
+- Within this analysis, no clear trend in predictive value of tau.
+- A lower AB42 concentration appears have a correlation with cognitive decline.
+- The linear regression model shows a weak correlation with age and APOE4 status on AB42 concentration.
+
+
+**Future Directions**
+
+- To run more non-parametric analysis (ex. Mann-Whitney test) of variables because of observed skew in each biomarker.
+- To investigate if gender had any observable trends.
+- To see if subsetting the data by APOE4 status would have changed the distribution of data.
+- The study was over 90% caucasian, so a more diverse study would be more representative.
+- Collecting biomarker values after second clinical visit to analyze changes in concentration.
+
+## References
+
+-  de Leon MJ, Pirraglia E, Osorio RS, Glodzik L, Saint-Louis L, Kim H-J, et al. (2018) The nonlinear relationship between cerebrospinal fluid Aβ42 and tau in preclinical Alzheimer’s disease. PLoS ONE 13(2): e0191240. https://doi.org/10.1371/journal.pone.0191240
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

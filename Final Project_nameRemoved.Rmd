@@ -1,0 +1,362 @@
+---
+title: "Colorectal Cancer Detection Using Targeted Serum Metabolic Profiling"
+author: ""
+date: "08/13/20"
+output:
+  slidy_presentation: default
+  ioslides_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(gridExtra)
+library(ggplot2)
+library(ComplexHeatmap)
+library(ggsignif)
+
+
+```
+
+## Background
+
+Data set from a study to identify biomarkers using metabolomics for early detection of colorectal cancer
+
+Data set obtained from the Metabolomic Workbench website
+
+Link:https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000284&StudyType=MS&ResultType=1
+
+Collected 234 serum samples from 3 patient groups: 66 CRC, 76 polyp and 92 healthy
+
+Identified 158 metabolites 
+
+Allows for statistical analysis, heatmap generation and data visualization
+
+Focus on metabolites involved in glycolysis since previous literature has shown that changes in glucose metabolism have been observed in CRC cases as well as other types of tumors
+
+***
+
+## Import Data from Excel file
+
+```{r}
+library(readxl)
+colon_test_excel<- read_excel("CRC raw data for SUR analysis_ updated with patient ID.xlsx")
+```
+Table with 234 observations (patient samples) and 124 variables (metabolites+extra information)
+
+Table contains only the information from 113 metabolites that were detected reliably and some information regarding gender, cancer status, age etc.
+
+***
+
+## Explore the data
+
+The raw values are very different between each metabolite
+```{r}
+#Get an idea of the data
+summary(colon_test_excel)
+```
+
+***
+
+## Explore the data/ Clean data
+
+Identified Class: Tibble Dataframe
+
+Changed missing values to NA
+
+Changed Group names to CRC, Polyp and Healthy
+
+Created subsets to use in statistical analysis later by selecting columns or using the filter command
+
+```{r}
+#Identify class
+class(colon_test_excel)
+
+#Change missing values to NA
+colon_test_excel[colon_test_excel == "-" ] <- NA
+
+#Change Group Names
+colon_test_excel$Groups <- recode_factor(colon_test_excel$Groups, `C` = "CRC", `H` = "Healthy", 'P' = "Polyp")
+
+#Create subsets to use for statistical analysis
+crc_healthy <- colon_test_excel[1:158, ]
+healthy_polyp <- colon_test_excel[67:234,]
+crc_polyp <- filter(colon_test_excel, Groups %in% c('CRC', 'Polyp'))
+```
+***
+
+## Heatmap
+
+Created matrix 
+
+Calculated the z-score using scale() because the raw values are very different between columns
+
+Confirmed that the z-score command worked by checking the mean and standard deviation (mean should be 0 and sd should be 1)
+
+Created a subset and a heatmap for each group
+
+Turned off row clustering so the order of metabolites stays the same and I can compare between groups
+
+Arranged heatmap side by side to observe differences between groups
+
+The heatmap allows us to see that there are differences in metabolite levels between groups as well as within groups
+
+We need to explore the relationships between groups and metabolites more in depth
+
+```{r}
+test_matrixall <- as.matrix(colon_test_excel[,3:115], "numeric")
+rowlistall <- colon_test_excel[,1]
+rowlistall <- unlist(rowlistall)
+rownames(test_matrixall)<- rowlistall
+zscorematrix <-scale(test_matrixall, center = TRUE, scale = TRUE)
+
+round(apply(zscorematrix [,1:10],2, mean, na.rm = TRUE))
+round(apply(zscorematrix [,1:10],2, sd, na.rm = TRUE))
+
+CRC_matrixall <- zscorematrix[1:66,]
+Healthy_matrixall <- zscorematrix[67:158,]
+Polyp_matrixall <- zscorematrix[159:234,]
+
+H1 <- Heatmap(scale(t(CRC_matrixall)), column_title = "CRC", row_title = "Metabolites",cluster_rows = FALSE, clustering_method_rows = "complete", show_row_names = FALSE, show_column_names = FALSE, show_column_dend = FALSE, show_heatmap_legend = FALSE) 
+
+H2 <- Heatmap(scale(t(Healthy_matrixall)), column_title = "Healthy", cluster_rows = FALSE, clustering_method_rows = "complete", show_row_names = FALSE, show_column_names = FALSE, show_column_dend = FALSE, show_heatmap_legend = FALSE) 
+
+H3 <- Heatmap(scale(t(Polyp_matrixall)), column_title = "Polyp",cluster_rows = FALSE, clustering_method_rows = "complete", show_row_names = FALSE, show_column_names = FALSE, show_column_dend = FALSE, name = 'Z-score') 
+
+H1+H2+H3
+
+```
+
+
+***
+
+## Statistical Analysis
+
+Checked data distribution using histograms
+
+Data is not normally distributed so we need to use a non parametric test 
+```{r}
+#Check data distribution 
+par(mfrow=c(2,2))
+hist(colon_test_excel$`Glyceraldehyde (89.0 / 59.0)`, main="Histogram (Glyceraldehyde)", col = 'steelblue')
+hist(colon_test_excel$`Glucose (179.0 / 89.0)`, main="Histogram (Glucose)", col = 'steelblue')
+hist(colon_test_excel$`Pyruvate (87.0 / 43.0)`, main="Histogram (Pyruvate)", col = 'steelblue')
+hist(colon_test_excel$`lactate (89.0 / 43.0)`, main="Histogram (Lactate)", col = 'steelblue')
+```
+
+
+
+***
+
+## Statistical Analysis 
+
+Since I have 3 groups I thought I should do a Kruskal-Wallis test with a pairwise comparison
+
+However, on the paper they did Mann Whitney U tests which only looks at 2 groups at a time 
+
+I tried both tests and I noticed that I got significant p-values between the same groups even though the p-value was not always the same
+
+I decided to move forward with the Mann Whitney test because I care about differences between the pairs of groups
+
+
+```{r, include=FALSE}
+#Kruskal-Walis between 3 groups
+#I wanted to try both tests to see if there would be a difference
+kruskal.test(`Glyceraldehyde (89.0 / 59.0)` ~ Groups, data = colon_test_excel)
+
+pairwise.wilcox.test(colon_test_excel$`Glyceraldehyde (89.0 / 59.0)`, colon_test_excel$Groups, p.adjust.method = "BH")
+
+```
+
+***
+
+## Statistical Analysis (Mann-Whitney U Test)
+
+Compare CRC and Healthy
+```{r}
+#Compare CRC and healthy
+wilcox.test(crc_healthy$`Glyceraldehyde (89.0 / 59.0)` ~ crc_healthy$Groups, paired = FALSE) 
+
+```
+
+Compare Healthy and Polyp
+```{r}
+wilcox.test(healthy_polyp$`Glyceraldehyde (89.0 / 59.0)` ~ healthy_polyp$Groups, paired = FALSE) 
+```
+
+Compare CRC and Polyp
+```{r}
+wilcox.test(crc_polyp$`Glyceraldehyde (89.0 / 59.0)` ~ crc_polyp$Groups, paired = FALSE) 
+```
+
+
+***
+
+## Statistical Analysis (Mann-Whitney U Test)
+
+Compare CRC and Healthy
+```{r}
+#Compare CRC and healthy
+wilcox.test(crc_healthy$`Glucose (179.0 / 89.0)` ~ crc_healthy$Groups, paired = FALSE) 
+```
+
+Compare Healthy and Polyp
+```{r}
+wilcox.test(healthy_polyp$`Glucose (179.0 / 89.0)` ~ healthy_polyp$Groups, paired = FALSE) 
+```
+
+Compare CRC and Polyp
+```{r}
+wilcox.test(crc_polyp$`Glucose (179.0 / 89.0)` ~ crc_polyp$Groups, paired = FALSE) 
+```
+
+
+***
+
+## Statistical Analysis (Mann-Whitney U Test)
+
+Compare CRC and Healthy
+```{r}
+#Compare CRC and healthy
+wilcox.test(crc_healthy$`Pyruvate (87.0 / 43.0)` ~ crc_healthy$Groups, paired = FALSE) 
+```
+
+Compare Healthy and Polyp
+```{r}
+wilcox.test(healthy_polyp$`Pyruvate (87.0 / 43.0)` ~ healthy_polyp$Groups, paired = FALSE) 
+```
+
+Compare CRC and Polyp
+```{r}
+wilcox.test(crc_polyp$`Pyruvate (87.0 / 43.0)` ~ crc_polyp$Groups, paired = FALSE) 
+```
+
+***
+
+## Statistical Analysis (Mann-Whitney U Test)
+
+Compare CRC and Healthy
+```{r}
+#Compare CRC and healthy
+wilcox.test(crc_healthy$`lactate (89.0 / 43.0)` ~ crc_healthy$Groups, paired = FALSE) 
+```
+
+Compare Healthy and Polyp
+```{r}
+wilcox.test(healthy_polyp$`lactate (89.0 / 43.0)` ~ healthy_polyp$Groups, paired = FALSE) 
+```
+
+
+Compare CRC and Polyp
+```{r}
+wilcox.test(crc_polyp$`lactate (89.0 / 43.0)` ~ crc_polyp$Groups, paired = FALSE) 
+```
+
+
+## Summary of Statistical Analysis
+
+Glyceraldehyde: Statistically significant difference between CRC/Healthy and CRC/Polyp
+
+Glucose: Statistically significant difference between CRC/Healthy 
+
+Pyruvate: Statistically significant difference between CRC/Healthy 
+
+Lactate: Statistically significant difference between CRC/Healthy 
+
+
+***
+
+## Data Visualization
+
+Plot mean to visualize difference
+
+```{r}
+#Bar graph
+bar1 <- ggplot(colon_test_excel, aes(x = Groups, y = `Glyceraldehyde (89.0 / 59.0)`, fill=Groups)) + stat_summary(fun = mean, geom="bar", color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .5)+ ggtitle("Glyceraldehyde") + ylab("Mean") +   theme(plot.title = element_text(hjust = 0.5)) + geom_signif(comparisons = list(c("CRC", "Healthy")), annotations="***", y_position = 98000, tip_length = 0.02) + geom_signif(comparisons = list(c("CRC", "Polyp")), annotations="***", y_position = 110000, tip_length = 0.02) 
+
+bar2 <-ggplot(colon_test_excel, aes(x = Groups, y = `Glucose (179.0 / 89.0)`, fill=Groups)) + stat_summary(fun = mean, geom="bar", color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .5)+ ggtitle("Glucose") + ylab("Mean") + theme(plot.title = element_text(hjust = 0.5)) + geom_signif(comparisons = list(c("CRC", "Healthy")), annotations="*", y_position = 8e+07, tip_length = 0.02) 
+
+bar3 <-ggplot(colon_test_excel, aes(x = Groups, y = `Pyruvate (87.0 / 43.0)`, fill=Groups)) + stat_summary(fun = mean, geom="bar", color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .5)+ ggtitle("Pyruvate") + ylab("Mean") + theme(plot.title = element_text(hjust = 0.5)) + geom_signif(comparisons = list(c("CRC", "Healthy")), annotations="*", y_position = 240000, tip_length = 0.02)
+
+bar4 <-ggplot(colon_test_excel, aes(x = Groups, y = `lactate (89.0 / 43.0)`, fill=Groups)) + stat_summary(fun = mean, geom="bar", color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .5)+ ggtitle("Lactate") + ylab("Mean") +   theme(plot.title = element_text(hjust = 0.5)) + geom_signif(comparisons = list(c("CRC", "Healthy")), annotations="*", y_position = 4.2e+07, tip_length = 0.02)
+
+#grid.arrange(bar1, bar2, bar3, bar4, ncol=2)
+
+bar1
+bar2
+bar3
+bar4
+```
+
+
+***
+
+## Logistic Regression
+
+Prepared 2 models for the CRC and Healthy groups
+
+Fit_model_1: glucose as predictor variable
+
+Fit_model_2: glucose, lactate and pyruvate as predictor variables
+
+Comparison by AIC shows that Fit2_model_2 is a worse model
+
+cooks.distance command does not show that there are individual outliers that largely influence our data
+
+```{r}
+#Model 1
+fit_model_1 <- glm(Groups ~ `Glucose (179.0 / 89.0)`, data=crc_healthy, family="binomial")  
+
+summary(fit_model_1)
+
+oddsRatio <- exp(fit_model_1$coefficients)
+oddsRatio
+
+exp(confint(fit_model_1))
+
+```
+***
+
+## Logistic Regression
+```{r}
+#Model 2
+fit_model_2 <- glm(Groups ~ `Glucose (179.0 / 89.0)` + `lactate (89.0 / 43.0)` +`Pyruvate (87.0 / 43.0)`, data=crc_healthy, family="binomial")
+
+summary(fit_model_2)
+
+#Comparison using the Akaike Information Criteria
+AIC(fit_model_1, fit_model_2)
+ 
+which(cooks.distance(fit_model_1)>10)
+which(cooks.distance(fit_model_2)>10)
+
+```
+
+
+***
+
+## Summary and Future Direction
+
+
+The dataframe contained a lot of information so I had to focus on a subset
+
+Higher mean levels of glucose, pyruvate and lactate were observed in CRC patients compared to healthy patients
+
+Interestingly, a regression model with glucose, lactate and pyruvate behaved worse than a model containing only glucose
+
+For the future, I would like to analyze a bigger portion of the data and do PLS Discriminant Analysis to identify metabolites that can distinguish between healthy and CRC patients
+
+I would also like to explore if there is a relationship between the different cancer stages and different levels of metabolites
+
+
+***
+
+## Citations
+
+Zhu, J., et al. (2014). "Colorectal Cancer Detection Using Targeted Serum Metabolic Profiling." Journal of Proteome Research 13(9): 4120-4130.
+
+## THANK YOU
+
+
+
+
