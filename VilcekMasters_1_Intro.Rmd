@@ -17,6 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 *** 
 
 # R Learning Outcomes
+
 </br>
 </br>
 </br>
@@ -42,6 +43,7 @@ R is a language for data analysis that can be used for cleaning, analyzing and p
 *** 
 
 ## What is R?
+
 </br>
 </br>
 </br>
@@ -52,6 +54,7 @@ R is *open source* and *free*
 *** 
 
 ## What is RStudio?
+
 </br>
 </br>
 </br>
@@ -303,7 +306,7 @@ You can directly download files to your project, or you can choose to go to a gi
 
 ***
 
-# Mentimeter Question
+# Quiz Question
 
 ***
 
@@ -380,7 +383,7 @@ mean(OneToTen)
 
 ***
 
-# Mentimeter Question
+# Quiz Question
 
 ***
 
@@ -414,7 +417,7 @@ Using R to analyze data stored in a separate raw file lets you keep your origina
 
 ```{r echo = TRUE}
 
-nyc <- read.csv("https://raw.githubusercontent.com/fredlapolla/RVilcekMasters23/master/NYC_HANES_DIAB.csv")
+nyc <- read.csv("https://raw.githubusercontent.com/fredlapolla/VilcekSummerDataAnalysis2024/main/NYC_HANES_DIAB.csv")
 ```
 
 ***
@@ -429,7 +432,7 @@ There are other types of data, and you can look up how to add them as data to yo
 
 ***
 
-## Break Out Group
+## On your own
 
 On your own, create a new R Project in a new directory. A directory is just a file folder. I recommend doing this in a file folder on your computer rather than in Google Drive, as sometimes working in Drive will give you repeated annoying warnings about access. Save this somewhere that will make sense for you and name it something that will make sense later, like LearningR. 
 
@@ -447,7 +450,6 @@ Write the command for pulling in csv data:
 ```
 
 
-Go to Mentimeter and give a thumbs up when done.
 
 ***
 
@@ -584,11 +586,10 @@ head(nyc)
 
 ***
 
-# Mentimeter Question
 
 
 
-***
+
 
 
 
@@ -631,5 +632,7 @@ hasDiab <- filter(nyc, DX_DBTS == 1)
 head(hasDiab)
 ```
 
+***
 
+## Review
 
