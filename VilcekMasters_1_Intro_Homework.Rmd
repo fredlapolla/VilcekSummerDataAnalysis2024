@@ -31,7 +31,7 @@ nyc <- read.csv("https://raw.githubusercontent.com/fredlapolla/RVilcekMaster23/m
 
 ```
 
-
+#OPTIONAL
 >- Find summary information about the total blood mercury levels in our NYC HANES data (hint: names(nyc) will call the names of each column). What is the max value, what is the minimum value.  
 
 ```{r}
@@ -44,6 +44,7 @@ nyc <- read.csv("https://raw.githubusercontent.com/fredlapolla/RVilcekMaster23/m
 
 ```
 
+#OPTIONAL
 
 >- Install a package and load, such as "ggplot2" or "dplyr"
 
@@ -64,6 +65,7 @@ nyc <- read.csv("https://raw.githubusercontent.com/fredlapolla/RVilcekMaster23/m
 ```{r}
 
 ```
+#OPTIONAL
 
 >- What two commands are needed to install and use a package in R?
 
