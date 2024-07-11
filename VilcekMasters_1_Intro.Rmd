@@ -1,7 +1,7 @@
 ---
 title: "BMIN-GA 1005 Programming for Data Analysis: Introduction"
 author: "Fred LaPolla"
-date: "July 8, 2024"
+date: "July 11, 2024"
 output:
   slidy_presentation: default
 ---
