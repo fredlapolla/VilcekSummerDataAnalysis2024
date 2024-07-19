@@ -1,0 +1,299 @@
+---
+title: "BMIN-GA 1005 Programming for Data Analysis: Data Cleaning 2 - Tidy Data and EHR
+  Data"
+author: "Fred LaPolla"
+date: "2024-07-16"
+output: slidy_presentation
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Cleaning 2: Tidy Data and EHR data
+
+## Tidy Data
+
+Hadley Wickham, one of the statisticians responsible for creating R created a concept called Tidy Data:
+
+* Each observation is a row
+* Each variable column
+* Each observational unit (i.e. a given patient with a given condition at a given time) is stored in a table
+
+
+
+***
+
+## Example of Tidy Data
+
+NYC HANES
+
+View(nyc)
+
+***
+
+Tidyverse is a suite of packages designed for data cleaning:
+
+```{r}
+#install.packages("tidyverse")
+library(tidyverse)
+```
+
+
+
+***
+
+## Considerations for data collection
+
+It can save yourself time when collecting data to avoid "compound variables," which are variables that contain two or more pieces of information in one column. 
+
+For example, if you are collecting address information, it may be helpful to break it down into street address, city, state/province, and nation, as it will then be easier to analyze later.
+
+***
+
+## EHR Data
+
+Often in the real world, data is not tidy.
+
+An example of very messy data that you may encounter is Electronic Health Record data, wherein a series of tables are linked by a patient identifier.
+
+Because the volume of information potentially captured on any one table would not be feasible for a single patient.
+
+***
+
+## Synthetic Mass Data
+
+A company called Mitre has created a synthetic (fake, no real patients) set of EHR data that we will use to play around with data cleaning. 
+
+These are found in the conditions and observations files. 
+
+Here is one table of synthetic EHR data from a company called Synthea, which aims to create simulated data about Massachusetts.
+
+
+Observations contains medical measurements, including labs, smoking status, weight, and blood pressure.
+
+Conditions contains medical findings diagnosed.
+
+Patients contains personal and demographic information.
+
+```{r }
+pat <- read.csv("https://raw.githubusercontent.com/fredlapolla/VilcekSummerDataAnalysis2024/main/patients.csv")
+
+cond <- read.csv("https://raw.githubusercontent.com/fredlapolla/VilcekSummerDataAnalysis2024/main/conditions.csv")
+
+obs <- read.csv("https://raw.githubusercontent.com/fredlapolla/VilcekSummerDataAnalysis2024/main/observations.csv")
+
+```
+
+
+***
+
+## Things to note in the Observations file
+
+1. Many different types of observations are stored in the Description column
+
+2. The patient number repeats for every measurement they received
+
+3. The patient and measurements repeat for each time point that they are collected, which for any given patient could be multiple times a year
+
+***
+
+## Long vs. Wide Data
+
+This format where multiple categories of measurement are stored in one column with measurement values is described as a long format. 
+
+It is possible to pivot from a long format to a wide format, and vice versa in R. 
+
+```{r}
+?pivot_wider
+#pivot_longer
+```
+
+***
+
+## Filtering Using Dplyr/Tidyverse
+
+Before we actually pivot our data, we should identify the variables of interest for our research and filter accordingly. 
+
+Here is where it will be important to think about 
+
+1. What is the condition or outcome (the dependent variable) of interest that we are interested in exploring? 
+2. What variable or variables do we think may influence that outcome (independent variables)?
+
+A basic question might be does social isolation correlate with higher blood pressure.
+
+***
+
+## Poll
+
+We would want to not only identify the blood pressure and social isolation variables, but also other variables that may relate blood pressure. 
+
+Sometimes we may identify these by what has been done in other similar research, by our knowledge of the scientific theory or common sense. 
+
+***
+
+## Finding the right tables
+
+To identify the useful data, you may need to use more than one table of information. Ideally you may have a data dictionary, which is a human readable document (pdf or word doc) describing all the variables in your data and what they contain (e.g. agegroup in the NYC HANES data contains three bins of ages). 
+
+The synthetic EHR data we have lacks a data dictionary so we will have to go by the file names. 
+
+
+Observations contains medical measurements, including labs, smoking status, weight, and blood pressure.
+
+Conditions contains medical findings diagnosed.
+
+Patients contains personal and demographic information.
+
+*** 
+
+## Filtering
+
+To start we might start a basic demographics table of things that may influence the relationship of social isolation and blood pressure, such as income, variables that correlate with income and reflect potentially different exposure histories like race and ethnicity, and sex. 
+
+```{r}
+soctab <- pat[,c(1,14:17,28)]
+names(soctab)[1] <- "PATIENT"
+```
+
+***
+
+## More Filtering
+
+Then we may want to jump to our Observations table to find the blood pressure measurements. 
+
+```{r}
+systolic <- obs %>% filter(DESCRIPTION == "Systolic Blood Pressure")
+diastolic <- obs %>% filter(DESCRIPTION=="Diastolic Blood Pressure")
+```
+
+***
+
+## Formatting dates and filtering by date
+
+Because we have repeat visits for the sake of simplicity, we can filter down to the most recent visit to get a snapshot. 
+
+Before doing that we need to see if our date field is categorized as a date
+
+```{r}
+class(systolic$DATE)
+```
+
+
+```{r}
+systolic$DATE <- as.Date(systolic$DATE)
+class(systolic$DATE)
+summary(systolic$DATE)
+```
+
+
+```{r}
+diastolic$DATE <- as.Date(diastolic$DATE)
+class(diastolic$DATE)
+summary(diastolic$DATE)
+```
+
+***
+
+## Removing duplicates
+
+First we want to put the dates in order with most recent at the top, so the top item of any given patient will be the newest. Again, this decision is being done for convenience. 
+
+```{r}
+diastolic <- diastolic[order(diastolic$DATE, decreasing = TRUE),]
+
+systolic <- systolic[order(systolic$DATE, decreasing = TRUE),]
+```
+
+***
+
+## Removing duplicates
+
+Now if we deduplicate, only the newest scores will stay.
+
+```{r}
+diastolic <- diastolic[!duplicated(diastolic["PATIENT"]),]
+systolic <- systolic[!duplicated(systolic["PATIENT"]),]
+```
+
+***
+
+## Actually moving from Long to Wide
+
+To make a tidy data subset, we will not make our systolic and diastolic data sets wide. Names_from is the new column header, and values_from is the measurement amount:
+
+```{r}
+diaw <- pivot_wider(diastolic, names_from = DESCRIPTION, values_from = VALUE)
+
+sysw <- pivot_wider(systolic, names_from = DESCRIPTION, values_from = VALUE)
+```
+
+To simplify we can get rid of everything but date, patient and blood pressure:
+
+```{r}
+sysw <- sysw[,c(1:2,8)]
+diaw <- diaw[,c(1:2,8)]
+```
+
+***
+
+## Merging Data Frames
+
+Merging data frames is done using a sytem called "joins." Joins come in 4 main types:
+
+* Inner: Only merges in cases where both data frames contain data for a given row
+* Full: Merges in all cases, if a given row is blank in one data frame, those columns will be empty in the merged data frame. 
+* Left: Merges to all cases where the first data frame listed has rows.
+* Right: Merges to all cases where the second data frame listed has rows. 
+
+In this case it does not really mean much as each of our data-frames matches by patient
+
+***
+
+## Merging
+
+```{r}
+soctab <- left_join(soctab, sysw, by = "PATIENT")
+```
+
+```{r}
+soctab <- left_join(soctab, diaw, by = "PATIENT")
+```
+
+***
+
+## Creating a categorical variable for high blood pressure
+
+High blood pressure is defined as > 130/80
+
+```{r}
+soctab$hbp <- ifelse(soctab$`Systolic Blood Pressure`>=130 & soctab$`Diastolic Blood Pressure`>=80, 1,0)
+soctab$hbp <- factor(soctab$hbp)
+summary(soctab$hbp)
+```
+
+
+
+***
+
+## Your turn!
+
+Poll:
+
+1) What are the commands to filter out just social isolation diagnoses from the observations tab? 
+
+2) How do we make the date column into dates rather than text?
+
+3) How do we sort and filter only the most recent dates?
+
+4) How do we pivot this table to make a column of Social Isolation diagnosis vs not. 
+
+5) Now it will matter if we do a full join, what is the command to merge this table with our main "soctab" dataframe. 
+
+# Bibliography
+
+
+
+Jason Walonoski, Mark Kramer, Joseph Nichols, Andre Quina, Chris Moesel, Dylan Hall, Carlton Duffett, Kudakwashe Dube, Thomas Gallagher, Scott McLachlan, Synthea: An approach, method, and software mechanism for generating synthetic patients and the synthetic electronic health care record, Journal of the American Medical Informatics Association, Volume 25, Issue 3, March 2018, Pages 230–238, https://doi.org/10.1093/jamia/ocx079
+
+Wickham, H. . (2014). Tidy Data. Journal of Statistical Software, 59(10), 1–23. https://doi.org/10.18637/jss.v059.i10
