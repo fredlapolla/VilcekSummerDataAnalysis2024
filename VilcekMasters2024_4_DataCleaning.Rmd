@@ -1,0 +1,338 @@
+---
+title: "R for Research Data Scientists: Data Cleaning"
+author: "Fred LaPolla"
+date: "10/5/2023"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = TRUE}
+crusio1 <- read.csv("https://raw.githubusercontent.com/fredlapolla/Vilcek2023R/main/Crusio1.csv")
+  
+```
+## Data Cleaning
+
+Often (maybe always) when we read in data, we are going to have to do some "data cleaning", or basically getting our data into a state where we can analyze it. 
+
+
+This is often very time consuming and you should budget time for this as it can be frustrating to load in data and assume you can begin manipulating it if you are not expecting it.
+
+***
+
+## Blank Values
+
+How to treat blank values is a topic of its own, and you may often choose to remove them. Let's pull in a dummy CSV named Junk. 
+
+```{r}
+
+junk <- read.csv("https://raw.githubusercontent.com/fredlapolla/Vilcek2023R/main/junk.csv")
+```
+
+
+What's in Junk? 
+
+A	    B	    C	    D	
+15	  17	  9999	13.3	
+4	    NA	  8	    5	
+	    9	    7		         missing elements
+8	    4	    4.5		
+9	    5	    3.9		
+
+
+As you can see, there are blanks in A[3], D[3:5], an NA in B[2], and a probably blank in C[1]
+
+***
+
+## How R treats it
+
+```{r}
+head(junk)
+mean(junk$D)
+```
+
+The blanks read in as NAs
+
+There are a lot of ways we could deal with this! 
+
+***
+
+## is.na()
+
+Our sample is small, but we may want to know where our NAs are in a larger dataset. We can get a list of logical results for where there are NAS using is.na, and then we can use that as an index of rows to see the rows with missing data:
+
+We could instead opt to only remove NAs from one column using is.na and the logical operators.
+
+```{r}
+## Pulling the full junk sheet in
+junk <- read.csv("https://raw.githubusercontent.com/fredlapolla/VilcekR_fall21/main/junk.csv")
+##Let's see what is.na does
+is.na(junk$A)
+
+```
+
+With logical operators we can combine this with indexing. Remember an exclamation point means "not":
+
+```{r}
+NoNAInA<- junk[!is.na(junk$A),]
+mean(NoNAInA$A)
+```
+
+
+This lets us delete out the NAs from the row of interest without losing more data. 
+
+We could alaso use this to see the NA values to investigate if there are any issues.
+
+```{r}
+head(crusio1[is.na(crusio1$bw),])
+```
+
+Similar functions for is.nan() and is.infinite() are available.
+
+
+You may deal with these NAs in a few ways. 
+
+***
+
+## na.omit()
+
+One option might be to just get rid of every NA:
+
+```{r}
+crusio1 <- na.omit(crusio1)
+summary(crusio1)
+```
+
+As you can see this is a kind of intense approach, in that ever row that has NAs is gone. 
+Other options than removing the NAs are to impute a value like a mean or a median instead. Next we will see how you can replace and recode values.
+
+***
+
+## Group Work
+
+Try using is.na to remove from bw
+
+```{r}
+
+```
+
+***
+
+## Replacing and Recoding
+
+Sometimes we will also want to change the values of a cell. For example, Column C contains a 9999. A good practice when we have missing data is to code it with a large number out of range to signify for example that it was intentionally ommitted rather than accidentally skipped (this point may be more relevant to clinical/survey type data than RNA data). We can try replace to change it to an NA
+
+```{r}
+junk$C <-  replace(junk$C, junk$C == 9999.0, NA)
+junk$C
+```
+
+
+Alternately we may need to recode values. We might opt to do this to reduce steps we need in a regression model, since a 0 or 1 can be included in the model, where text cannot (we will talk about this more later):
+
+```{r}
+##Pulling in our nyc data set again
+
+crusio1 <- read.csv("https://raw.githubusercontent.com/fredlapolla/VilcekR_fall21/main/Crusio1.csv")
+
+library(tidyverse)
+
+crusio1$sex <- recode_factor(crusio1$sex,  "m"=0, "f"=1 )
+summary(crusio1$sex)
+  
+```
+
+***
+
+## Group Work
+
+Try using recode_factor to change the values of attack_combine to "no" and "yes".
+
+```{r}
+
+```
+
+
+
+
+***
+
+## Reclassifying data
+
+Often when we read in data we may have data classified in a way that we do not want. 
+
+One thing to note is the option to set "stringsAsFactors" to False
+
+```{r}
+
+crusio1 <- read.csv("https://raw.githubusercontent.com/fredlapolla/Vilcek2023R/main/Crusio1.csv", stringsAsFactors = FALSE)
+class(crusio1$sex)
+```
+
+We will probably still need to re-assign other columns of data or data structures:
+
+
+For example, we often need to assign factors with labels. Note that labels and levels need to follow the order of the data.
+
+```{r}
+crusio1$sex <- factor(crusio1$sex, labels = c("m","f"))
+```
+
+
+
+***
+
+## Mutate
+
+We aslo previously saw we could create new variables and did so with ifelse statements. Another way that may be easier is to use a dplyr command: mutate:
+
+```{r}
+library(dplyr)
+crusio1 <- crusio1 %>% mutate(center_time/center_dist)
+```
+
+Here we are creating a new center ratio, and it automatically adds the data onto the end. 
+
+***
+
+## Group Work
+
+Try using Mutate to make a new variable of num_arms_d1 divided by 8 (the total number of possible arms)
+
+```{r}
+
+```
+
+
+***
+
+## Getting rid of extraneous data
+
+Sometimes we may have a column of data we need to remove, for example if someone annotated the data on a spreadsheet of collected data. That can be easiest done using the minus sign when indexing;
+
+```{r}
+junk <- junk[,-5]
+head(junk)
+```
+
+***
+
+## Renaming Columns
+
+You may have columns that are less than ideal. You can rename them:
+
+```{r}
+crusio1 <- rename(crusio1, "BodyWeight" = bw)
+names(crusio1)
+```
+
+To set it back:
+
+```{r}
+crusio1 <- rename(crusio1,  bw = BodyWeight )
+names(crusio1)
+
+```
+
+***
+
+## Combining if statements, renaming and coercing to a factor
+
+We often will want to combine multiple of these operations, for example to get dichotomies of continuous variables to make it easier to analyze:
+
+```{r}
+crusio1[,87] <- ifelse(crusio1$bw>quantile(crusio1$bw, na.rm = TRUE)[4], "heavy", ifelse(crusio1$bw < quantile(crusio1$bw, na.rm = TRUE)[2]  , "light", "middle"))
+
+crusio1[,87]<-factor(crusio1[,87])
+summary(crusio1[,87])
+
+
+```
+
+
+***
+
+## Regular Expressions (REGEX) and GREP()
+
+Sometimes you may have information mashed into a cell in a way that is meaningful but hard to readily extract. For example, what if study ids were coded such that there was a number and a meaningful letter string. For example, maybe you have specimens and you append a letter to the subject id to readily know if they are knockout vs wildtype mice. From a clinical perspective, maybe a letter is signifying caregivers vs primary study participants. 
+
+To find which cells contain a letter string, a useful command is grep(). Grep matches a string of characters. In our sample data, strain includes strains beginning with "BXD", "C57BL" and "DBA. Grep produces a list of indices for where that term appears.
+
+```{r}
+C57BL <- grep("C57BL", crusio1$strain)
+length(C57BL)
+##To view only this subset:
+summary(crusio1[C57BL,1:4])
+```
+
+***
+
+## Gsub
+
+A related command is Gsub, which lets you find a "pattern" and replace it with new text. You can thinkn of this as similar to find and replace. This example is admittedly random, but you might use gsub to get rid of letters added in processing:
+
+```{r}
+crusio1$strain <- gsub("BXD100", "Jackson", crusio1$strain)
+```
+
+***
+
+## Group Work
+
+Use Grep to locate the DBA/2J strain of mice
+
+```{r}
+
+```
+
+
+***
+
+## String Splitting strsplit()
+
+Related to finding indices with grep, sometimes you may have data that is not adequately divided into columns. Let's make up an example where a small list of zip codes is provided with four digit codes, but we want to separate this data. Unlist is used to simplify the list into a structure that strsplit can work with. 
+
+```{r}
+zips <- list("11219-4349", "10016-1111", "11385-3446")
+strsplit(unlist(zips), split = "-")
+```
+
+Relatedly, if you get data back with spaces you can use str_trim() and set it to "left" or "right" to get rid of blanks. 
+
+***
+
+## Dates and Times
+
+R has features for converting dates to a format you can work with. Let's say you get results with dates as strings:
+
+```{r}
+#install.packages("lubridate", repos = "http://cran.us.r-project.org")
+library(lubridate)
+dates <- c("4/23/2020", "April 23, 2020", "4/23/2020")
+mdy(dates)
+```
+
+
+***
+
+## Review
+
+Data Cleaning allows for multiple different approaches.
+
+It is generally time consuming. 
+
+***
+
+
+
+
+***
+
+## Bibliography
+
+Jonge, E.D., Van Der Loo, M., "An Introduction to Data Cleaning with R" Statistics Nethelands. The Hague: 2013
+
+Sullivan, J. "Data Cleaning with R and the Tidyverse: Detecting Missing Values" Towards Data Science. March 21, 2019. https://towardsdatascience.com/data-cleaning-with-r-and-the-tidyverse-detecting-missing-values-ea23c519bc62
+
