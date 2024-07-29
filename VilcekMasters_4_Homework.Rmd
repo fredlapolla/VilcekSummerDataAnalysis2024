@@ -1,0 +1,80 @@
+---
+title: "Masters Homework 4"
+author: "Fred LaPolla"
+date: "8/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Use the Synthetic Mass Data:
+
+1. Make a subset of Patient data to have patient ID, sex/gender, race and ethnicity. 
+
+```{r}
+
+```
+
+2. Make a subset of observation data for body weight and body height, and filter to have only the most recent of each. 
+
+```{r}
+
+```
+
+3. Convert the body weight and height tables to wide format. 
+
+```{r}
+
+```
+
+4. Merge the body weight and height information onto your demographic dataframe created in question one. 
+
+```{r}
+
+```
+
+5. Calculate BMI into a new column. The equation is weight (kg)/height ^2 (m)
+
+```{r}
+
+```
+
+
+
+
+6. Why would one use a visualization for exploratory analysis?
+
+
+
+7. What information about the nature of our data can a histogram tell us?
+
+
+
+8. Make a histogram on LEAD from the nyc data frame. Is it skewed? Which way? 
+
+```{r}
+
+```
+
+>- Make a QQPlot to assess the normality UCREATININE. Is the distribution normal? How can you tell?
+
+```{r}
+
+```
+
+>- Make a boxplot glucose levels by diabetes diagnosis:
+
+```{r}
+
+
+```
+
+>- Make a scatterplot of total cholesterol by LDL. Does there appear to be a relationship?
+
+```{r}
+
+```
+
+
